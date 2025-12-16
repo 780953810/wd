@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>浩天油站 12 周年庆</title>
+    
+    <!-- PWA 核心配置：将 Manifest JSON 直接嵌入 URL，实现单文件 PWA -->
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"浩天油站抽奖","short_name":"浩天抽奖","start_url":".","display":"standalone","background_color":"#f5f5f5","theme_color":"#e60012","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e60012%22 rx=%2220%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-family=%22Arial%22 font-size=%2250%22 fill=%22white%22 text-anchor=%22middle%22 dy=%22.35em%22%3E%F0%9F%8E%81%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}'>
+
+    <!-- 安卓/Chrome 移动端配置 -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#e60012">
+
+    <!-- iOS/Safari 移动端配置 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="浩天抽奖">
+    <!-- iOS 图标 (使用 SVG Data URI 的 Base64) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e60012%22 rx=%2220%22/%3E%3Ctext x=%2250%22 y=%2250%22 font-family=%22Arial%22 font-size=%2250%22 fill=%22white%22 text-anchor=%22middle%22 dy=%22.35em%22%3E%F0%9F%8E%81%3C/text%3E%3C/svg%3E">
+
+    <style>
+        :root {
+            --primary-color: #e60012; /* 油站红 */
+            --secondary-color: #ffcc00; /* 庆典黄 */
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none; /* 防止长按选中文字 */
+            -webkit-tap-highlight-color: transparent; /* 移除点击高亮 */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部标题 - 只有这部分是固定的 */
+        .header {
+            background: linear-gradient(to right, var(--primary-color), #b3000e);
+            color: white;
+            text-align: center;
+            padding: 15px 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 50; /* 最高层级 */
+            flex-shrink: 0;
+            padding-top: env(safe-area-inset-top); /* 适配刘海屏 */
+        }
+
+        /* 页面容器 */
+        .container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* 页面切换逻辑 - 使用绝对定位叠加 */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* 默认隐藏 */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-color);
+            transition: opacity 0.3s;
+            overflow-y: auto; /* 允许内容过多时滚动 */
+            z-index: 10;
+        }
+
+        .page.active {
+            display: flex;
+            z-index: 20; /* 激活时位于上层 */
+        }
+
+        /* --- 首页样式 --- */
+        .selection-box {
+            width: 85%;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-top: -50px; /* 稍微上移视觉中心 */
+        }
+
+        .btn-select {
+            background: white;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 25px;
+            font-size: 1.3rem;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: all 0.1s;
+        }
+
+        .btn-select:active {
+            transform: scale(0.96);
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* --- 抽奖页样式 --- */
+        .wheel-container {
+            position: relative;
+            width: 90vw;
+            height: 90vw;
+            max-width: 360px;
+            max-height: 360px;
+            margin-bottom: 30px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        /* 固定指针 */
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 40px solid var(--primary-color);
+            z-index: 25;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+        }
+
+        /* 中心按钮 */
+        .center-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffde00, #ffba00);
+            border: 5px solid white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #d32f2f;
+            font-size: 1.2rem;
+            z-index: 30;
+            cursor: pointer;
+            text-align: center;
+            line-height: 1.2;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .center-btn.stop-mode {
+            background: linear-gradient(135deg, #ff4d4d, #cc0000);
+            color: white;
+        }
+
+        /* 新增：禁用状态样式 */
+        .center-btn.disabled {
+            background: #dcdcdc;
+            color: #888;
+            border-color: #f0f0f0;
+            cursor: not-allowed;
+            pointer-events: none; /* 禁止点击事件 */
+        }
+
+        /* --- 历史记录页样式 --- */
+        .history-header {
+            width: 100%;
+            padding: 10px 15px;
+            background: #eee;
+            color: #666;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .history-list {
+            width: 100%;
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.95rem;
+        }
+
+        .history-time { color: #888; }
+        .history-prize { font-weight: bold; color: var(--primary-color); }
+
+        /* --- 通用浮动按钮 --- */
+        .float-btn {
+            position: absolute;
+            padding: 12px 25px;
+            background-color: rgba(50, 50, 50, 0.9);
+            color: white;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 40;
+        }
+
+        .btn-history-entry { bottom: 40px; right: 20px; }
+        .btn-reset { bottom: 40px; left: 20px; background-color: #666; }
+        
+        /* 这里的返回按钮专门用于历史页 */
+        .btn-back-nav {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- 弹窗样式 --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(2px);
+        }
+        .modal-content {
+            background: white;
+            padding: 30px 20px;
+            border-radius: 20px;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-title { font-size: 1.2rem; color: #333; margin-bottom: 10px; }
+        .modal-text {
+            font-size: 1.8rem;
+            margin: 15px 0 25px 0;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        .btn-close-modal {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">浩天油站 12 周年庆 - 抽奖活动</div>
+
+    <div class="container">
+        
+        <!-- 1. 首页：选择金额 -->
+        <div id="page-home" class="page active">
+            <div class="selection-box">
+                <div class="btn-select" onclick="app.selectTier(100)">
+                    ⛽️ 加油 100 元及以上
+                </div>
+                <div class="btn-select" onclick="app.selectTier(200)">
+                    ⛽️ 加油 200 元及以上
+                </div>
+            </div>
+            <div class="float-btn btn-history-entry" onclick="app.showHistory()">📜 查看历史记录</div>
+        </div>
+
+        <!-- 2. 抽奖页 -->
+        <div id="page-game" class="page">
+            <div class="wheel-container">
+                <canvas id="wheelCanvas"></canvas>
+                <div class="pointer"></div>
+                <div class="center-btn" id="actionBtn" onclick="app.toggleSpin()">开始</div>
+            </div>
+            <!-- 修改文案强调必须返回 -->
+            <div class="float-btn btn-reset" onclick="app.resetGame()">⬅️ 返回主页</div>
+        </div>
+
+        <!-- 3. 历史记录页 -->
+        <div id="page-history" class="page" style="justify-content: flex-start;">
+            <div class="btn-back-nav" onclick="app.goHome()">⬅️ 返回首页</div>
+            <div class="history-header">
+                <span>时间</span>
+                <span>奖项</span>
+            </div>
+            <div class="history-list" id="historyList">
+                <!-- 列表项将由 JS 生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 结果弹窗 -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">🎉 恭喜您获得</div>
+            <div class="modal-text" id="resultText"></div>
+            <button class="btn-close-modal" onclick="app.closeModal()">收下好运</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 浩天油站抽奖 Web App 核心逻辑
+         */
+        const app = {
+            // --- 配置数据 ---
+            config: {
+                tiers: {
+                    100: ['优惠2元', '优惠1元', '优惠2元', '优惠3元', '谢谢惠顾', '优惠1元', '优惠2元', '优惠3元', '谢谢惠顾'],
+                    200: ['优惠4元', '优惠2元', '优惠4元', '优惠5元', '谢谢惠顾', '优惠2元', '优惠4元', '优惠5元', '谢谢惠顾']
+                },
+                colors: ['#ffffff', '#fff2f2'], 
+                storageKey: 'ht_oil_lottery_v1'
+            },
+
+            // --- 运行时状态 ---
+            state: {
+                currentTier: 100,
+                prizes: [],
+                isSpinning: false,
+                gameLocked: false, // 新增：锁定状态，抽完一次后锁定
+                rotationAngle: 0,
+                spinSpeed: 0,
+                animationFrameId: null,
+                ctx: null,
+                canvas: null,
+                audioCtx: null
+            },
+
+            // --- 初始化 ---
+            init: function() {
+                this.state.canvas = document.getElementById('wheelCanvas');
+                this.state.ctx = this.state.canvas.getContext('2d');
+                
+                window.addEventListener('resize', () => this.resizeCanvas());
+                this.resizeCanvas();
+                this.drawWheel(); 
+                console.log("App Initialized");
+            },
+
+            // --- 适配高分屏 ---
+            resizeCanvas: function() {
+                const { canvas, ctx } = this.state;
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.getBoundingClientRect();
+                
+                if (rect.width === 0) return;
+
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.scale(dpr, dpr);
+                this.drawWheel();
+            },
+
+            // --- 页面导航 ---
+            switchPage: function(pageId) {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById(pageId).classList.add('active');
+            },
+
+            // --- 业务逻辑 ---
+            selectTier: function(amount) {
+                this.state.currentTier = amount;
+                this.state.prizes = this.config.tiers[amount];
+                this.state.rotationAngle = 0;
+                this.state.isSpinning = false;
+                
+                // 每次进入抽奖页，重置锁定状态，允许抽奖
+                this.state.gameLocked = false;
+                
+                this.switchPage('page-game');
+                this.resizeCanvas();
+                this.updateBtnState();
+                this.drawWheel();
+            },
+
+            resetGame: function() {
+                if (this.state.isSpinning) return;
+                this.switchPage('page-home');
+            },
+
+            goHome: function() {
+                this.switchPage('page-home');
+            },
+
+            // --- 核心：转盘绘制 ---
+            drawWheel: function() {
+                const { ctx, canvas, prizes, rotationAngle } = this.state;
+                if (!ctx) return;
+
+                const numSegments = prizes.length > 0 ? prizes.length : 9;
+                const arc = Math.PI * 2 / numSegments;
+                const width = canvas.width / (window.devicePixelRatio || 1);
+                const height = canvas.height / (window.devicePixelRatio || 1);
+                const radius = width / 2 - 5;
+                
+                // 安全检查
+                if (width <= 0 || height <= 0 || radius <= 0) return;
+
+                const centerX = width / 2;
+                const centerY = height / 2;
+
+                ctx.clearRect(0, 0, width, height);
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(rotationAngle * Math.PI / 180);
+
+                for (let i = 0; i < numSegments; i++) {
+                    const angle = i * arc;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, radius, angle, angle + arc);
+                    ctx.fillStyle = (i % 2 === 0) ? this.config.colors[0] : this.config.colors[1];
+                    ctx.fill();
+                    ctx.strokeStyle = "#e60012";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+
+                    if (prizes.length > 0) {
+                        ctx.save();
+                        ctx.rotate(angle + arc / 2);
+                        ctx.textAlign = "right";
+                        ctx.fillStyle = "#e60012";
+                        ctx.font = "bold 15px Arial";
+                        ctx.fillText(prizes[i], radius - 20, 6);
+                        ctx.restore();
+                    }
+                }
+                ctx.restore();
+            },
+
+            // --- 核心：转动控制 ---
+            toggleSpin: function() {
+                // 如果游戏已锁定（已抽完一次），则禁止操作
+                if (this.state.gameLocked) return;
+
+                // 1. 确保音频上下文就绪
+                try {
+                    if (!this.state.audioCtx) {
+                        this.state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (this.state.audioCtx.state === 'suspended') {
+                        this.state.audioCtx.resume();
+                    }
+                } catch (e) {
+                    console.error("Audio init error", e);
+                }
+
+                if (this.state.isSpinning) {
+                    this.stopSpin();
+                } else {
+                    this.startSpin();
+                }
+            },
+
+            startSpin: function() {
+                if (this.state.isSpinning) return;
+                
+                if (this.state.animationFrameId) {
+                    cancelAnimationFrame(this.state.animationFrameId);
+                }
+
+                this.state.isSpinning = true;
+                this.state.spinSpeed = 0;
+                this.updateBtnState();
+                
+                try {
+                    this.playSound('start');
+                } catch(e) { console.error(e); }
+                
+                this.loop();
+            },
+
+            loop: function() {
+                const s = this.state;
+                
+                if (!s.isSpinning && s.spinSpeed <= 0) return;
+
+                if (s.isSpinning && s.spinSpeed < 35) {
+                    s.spinSpeed += 0.8;
+                }
+
+                s.rotationAngle += s.spinSpeed;
+                this.drawWheel();
+
+                if (s.isSpinning) {
+                    s.animationFrameId = requestAnimationFrame(() => this.loop());
+                }
+            },
+
+            stopSpin: function() {
+                if (!this.state.isSpinning) return;
+                
+                this.state.isSpinning = false;
+                
+                if (this.state.animationFrameId) {
+                    cancelAnimationFrame(this.state.animationFrameId);
+                }
+                
+                this.state.spinSpeed = 0;
+                this.updateBtnState();
+                
+                this.calculateResult();
+                try {
+                    this.playSound('win');
+                } catch(e) { console.error(e); }
+            },
+
+            calculateResult: function() {
+                const s = this.state;
+                const normalizedAngle = s.rotationAngle % 360;
+                const pointerAngle = (360 - normalizedAngle + 270) % 360;
+                const segmentAngle = 360 / s.prizes.length;
+                
+                const winningIndex = Math.floor(pointerAngle / segmentAngle);
+                const result = s.prizes[winningIndex];
+
+                this.showResult(result);
+                this.saveHistory(result);
+            },
+
+            updateBtnState: function() {
+                const btn = document.getElementById('actionBtn');
+                
+                // 优先级 1: 如果锁定，显示不可用状态
+                if (this.state.gameLocked) {
+                    btn.innerHTML = "已<br>完成";
+                    btn.classList.add('disabled');
+                    btn.classList.remove('stop-mode');
+                    return;
+                }
+
+                // 优先级 2: 正常状态
+                btn.classList.remove('disabled');
+                if (this.state.isSpinning) {
+                    btn.innerText = "停止";
+                    btn.classList.add('stop-mode');
+                } else {
+                    btn.innerText = "开始";
+                    btn.classList.remove('stop-mode');
+                }
+            },
+
+            // --- 弹窗与历史记录 ---
+            showResult: function(text) {
+                document.getElementById('resultText').innerText = text;
+                document.getElementById('resultModal').style.display = 'flex';
+            },
+
+            closeModal: function() {
+                document.getElementById('resultModal').style.display = 'none';
+                
+                // 关键修改：关闭弹窗后，锁定游戏，强迫用户返回主页
+                this.state.gameLocked = true;
+                this.updateBtnState();
+            },
+
+            saveHistory: function(prizeName) {
+                const now = new Date();
+                const pad = (n) => n < 10 ? '0'+n : n;
+                const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+                
+                const record = { time: timeStr, prize: prizeName };
+                let history = JSON.parse(localStorage.getItem(this.config.storageKey) || '[]');
+                history.unshift(record);
+                if (history.length > 200) history = history.slice(0, 200);
+                localStorage.setItem(this.config.storageKey, JSON.stringify(history));
+            },
+
+            showHistory: function() {
+                const listEl = document.getElementById('historyList');
+                listEl.innerHTML = '';
+                const history = JSON.parse(localStorage.getItem(this.config.storageKey) || '[]');
+                
+                if (history.length === 0) {
+                    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:#999;">暂无抽奖记录</div>';
+                } else {
+                    const fragment = document.createDocumentFragment();
+                    history.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item';
+                        div.innerHTML = `<span class="history-time">${item.time}</span><span class="history-prize">${item.prize}</span>`;
+                        fragment.appendChild(div);
+                    });
+                    listEl.appendChild(fragment);
+                }
+                this.switchPage('page-history');
+            },
+
+            // --- 简易音效 ---
+            playSound: function(type) {
+                if (!this.state.audioCtx) return;
+                const ctx = this.state.audioCtx;
+                if (ctx.state === 'suspended') return;
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'start') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start();
+                    osc.stop(now + 0.1);
+                } else if (type === 'win') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.linearRampToValueAtTime(600, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start();
+                    osc.stop(now + 0.4);
+                }
+            }
+        };
+
+        window.addEventListener('load', () => app.init());
+
+    </script>
+</body>
+</html>
