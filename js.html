@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>油品到站成本价计算器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding-bottom: 20px;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 15px;
+        }
+        
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1a6dcc 0%, #0d4d9c 100%);
+            color: white;
+            padding: 20px 15px;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 12px rgba(13, 77, 156, 0.2);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1a6dcc;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-title i {
+            margin-right: 8px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .price-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e1e5eb;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s;
+            background-color: #f9fafc;
+        }
+        
+        .price-input:focus {
+            outline: none;
+            border-color: #1a6dcc;
+            background-color: white;
+            box-shadow: 0 0 0 3px rgba(26, 109, 204, 0.1);
+        }
+        
+        .oil-type-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .oil-btn {
+            padding: 18px 10px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .oil-btn i {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+        
+        .oil-btn.gasoline {
+            background-color: #f0f7ff;
+            color: #1a6dcc;
+            border: 2px solid #cce0ff;
+        }
+        
+        .oil-btn.diesel {
+            background-color: #f0fff4;
+            color: #2e8b57;
+            border: 2px solid #c6f6d5;
+        }
+        
+        .oil-btn.active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .oil-btn.gasoline.active {
+            background-color: #1a6dcc;
+            color: white;
+            border-color: #1a6dcc;
+        }
+        
+        .oil-btn.diesel.active {
+            background-color: #2e8b57;
+            color: white;
+            border-color: #2e8b57;
+        }
+        
+        .result-display {
+            background: linear-gradient(135deg, #f8fafd 0%, #e8f0fa 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 2px dashed #cce0ff;
+            margin-bottom: 25px;
+        }
+        
+        .result-label {
+            font-size: 0.95rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .result-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #1a6dcc;
+        }
+        
+        .result-unit {
+            font-size: 1rem;
+            color: #888;
+            margin-left: 3px;
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .action-btn {
+            padding: 16px 10px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .action-btn i {
+            margin-right: 8px;
+        }
+        
+        .action-btn.chart {
+            background-color: #8a4baf;
+            color: white;
+        }
+        
+        .action-btn.guide {
+            background-color: #e67e22;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .history-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .clear-history {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #6c757d;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .clear-history:hover {
+            background: #e9ecef;
+        }
+        
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #1a6dcc;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .history-item:hover {
+            background: #e9ecef;
+        }
+        
+        .history-item.diesel {
+            border-left-color: #2e8b57;
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .history-oil-type {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #1a6dcc;
+        }
+        
+        .history-item.diesel .history-oil-type {
+            color: #2e8b57;
+        }
+        
+        .history-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .history-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        
+        .history-price {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .history-cost {
+            font-weight: 700;
+            color: #1a6dcc;
+        }
+        
+        .delete-history {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .history-item:hover .delete-history {
+            opacity: 1;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+        
+        .back-button i {
+            margin-right: 8px;
+        }
+        
+        .back-button:hover {
+            background: #e9ecef;
+        }
+        
+        .chart-container {
+            height: 350px;
+            margin-top: 10px;
+        }
+        
+        .guide-price-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .guide-price-item:last-child {
+            border-bottom: none;
+        }
+        
+        .guide-price-label {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .guide-price-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .guide-price-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .guide-price-input {
+            width: 120px;
+            padding: 10px;
+            border: 2px solid #e1e5eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .guide-price-input:focus {
+            outline: none;
+            border-color: #1a6dcc;
+        }
+        
+        .guide-price-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .guide-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .guide-btn.save {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .guide-btn.modify {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .guide-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .save-time {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-data i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #dee2e6;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 15px;
+            width: 85%;
+            max-width: 400px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .modal-message {
+            margin-bottom: 25px;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .modal-btn.cancel {
+            background-color: #f8f9fa;
+            color: #495057;
+            border: 1px solid #dee2e6;
+        }
+        
+        .modal-btn.confirm {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .modal-btn.cancel:hover {
+            background-color: #e9ecef;
+        }
+        
+        .modal-btn.confirm:hover {
+            background-color: #c82333;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            header {
+                padding: 15px 10px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .oil-btn {
+                padding: 15px 8px;
+                font-size: 0.9rem;
+            }
+            
+            .result-value {
+                font-size: 1.6rem;
+            }
+            
+            .guide-price-input {
+                width: 100px;
+            }
+        }
+        
+        /* 新增的布伦特原油样式 */
+        .guide-price-item.crude {
+            border-left: 4px solid #e67e22;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主页面 -->
+    <div id="main-page" class="page active">
+        <header>
+            <h1>油品到站成本价计算器</h1>
+            <p>输入出厂价，选择油品类型，计算到站成本价</p>
+        </header>
+        
+        <div class="container">
+            <!-- 输入区域 -->
+            <div class="card">
+                <div class="card-title">
+                    <i class="fas fa-calculator"></i>
+                    <span>成本计算</span>
+                </div>
+                
+                <div class="input-group">
+                    <div class="input-label">出厂价（元/吨）</div>
+                    <input type="number" id="factory-price" class="price-input" placeholder="请输入出厂价" min="0" step="0.01">
+                </div>
+                
+                <div class="oil-type-buttons">
+                    <button class="oil-btn gasoline" data-type="含税汽油">
+                        <i class="fas fa-gas-pump"></i>
+                        <span>含税汽油</span>
+                    </button>
+                    <button class="oil-btn gasoline" data-type="不含税汽油">
+                        <i class="fas fa-gas-pump"></i>
+                        <span>不含税汽油</span>
+                    </button>
+                    <button class="oil-btn diesel" data-type="含税柴油">
+                        <i class="fas fa-oil-can"></i>
+                        <span>含税柴油</span>
+                    </button>
+                    <button class="oil-btn diesel" data-type="不含税柴油">
+                        <i class="fas fa-oil-can"></i>
+                        <span>不含税柴油</span>
+                    </button>
+                </div>
+                
+                <div class="result-display">
+                    <div class="result-label">到站成本价</div>
+                    <div>
+                        <span id="result-value" class="result-value">0.00</span>
+                        <span class="result-unit">元/升</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 功能按钮区域 -->
+            <div class="action-buttons">
+                <button id="chart-btn" class="action-btn chart">
+                    <i class="fas fa-chart-line"></i>
+                    <span>价格趋势曲线图</span>
+                </button>
+                <button id="guide-btn" class="action-btn guide">
+                    <i class="fas fa-cog"></i>
+                    <span>当前指导价</span>
+                </button>
+            </div>
+            
+            <!-- 历史记录区域 -->
+            <div class="card">
+                <div class="history-title">
+                    <div class="card-title">
+                        <i class="fas fa-history"></i>
+                        <span>计算历史记录</span>
+                    </div>
+                    <button id="clear-history" class="clear-history">清空记录</button>
+                </div>
+                
+                <div id="history-list" class="history-list">
+                    <!-- 历史记录将通过JavaScript动态生成 -->
+                    <div class="no-data" id="no-history">
+                        <i class="fas fa-history"></i>
+                        <p>暂无计算记录</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 价格趋势曲线图页面 -->
+    <div id="chart-page" class="page">
+        <header>
+            <h1>价格趋势曲线图</h1>
+            <p>基于历史记录数据的趋势图表</p>
+        </header>
+        
+        <div class="container">
+            <button id="back-from-chart" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                <span>返回主界面</span>
+            </button>
+            
+            <div class="card">
+                <div class="card-title">
+                    <i class="fas fa-chart-line"></i>
+                    <span>价格趋势图</span>
+                </div>
+                
+                <div id="chart-container" class="chart-container">
+                    <canvas id="price-chart"></canvas>
+                </div>
+                
+                <div class="no-data" id="no-chart-data" style="display: none;">
+                    <i class="fas fa-chart-line"></i>
+                    <p>暂无历史数据，请先进行计算</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 当前指导价页面 -->
+    <div id="guide-page" class="page">
+        <header>
+            <h1>当前指导价设置</h1>
+            <p>设置并保存当前油品指导价</p>
+        </header>
+        
+        <div class="container">
+            <button id="back-from-guide" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                <span>返回主界面</span>
+            </button>
+            
+            <div class="card">
+                <div class="card-title">
+                    <i class="fas fa-cog"></i>
+                    <span>指导价设置</span>
+                </div>
+                
+                <div class="guide-price-item">
+                    <div class="guide-price-label">
+                        <div class="guide-price-name">0号柴油</div>
+                        <div class="guide-price-time" id="diesel-time">未保存</div>
+                    </div>
+                    <input type="number" id="diesel-price" class="guide-price-input" placeholder="0.00" min="0" step="0.01">
+                    <div class="guide-price-buttons">
+                        <button class="guide-btn save" data-type="diesel">保存</button>
+                        <button class="guide-btn modify" data-type="diesel">修改</button>
+                    </div>
+                </div>
+                
+                <div class="guide-price-item">
+                    <div class="guide-price-label">
+                        <div class="guide-price-name">92号汽油</div>
+                        <div class="guide-price-time" id="gas92-time">未保存</div>
+                    </div>
+                    <input type="number" id="gas92-price" class="guide-price-input" placeholder="0.00" min="0" step="0.01">
+                    <div class="guide-price-buttons">
+                        <button class="guide-btn save" data-type="gas92">保存</button>
+                        <button class="guide-btn modify" data-type="gas92">修改</button>
+                    </div>
+                </div>
+                
+                <div class="guide-price-item">
+                    <div class="guide-price-label">
+                        <div class="guide-price-name">95号汽油</div>
+                        <div class="guide-price-time" id="gas95-time">未保存</div>
+                    </div>
+                    <input type="number" id="gas95-price" class="guide-price-input" placeholder="0.00" min="0" step="0.01">
+                    <div class="guide-price-buttons">
+                        <button class="guide-btn save" data-type="gas95">保存</button>
+                        <button class="guide-btn modify" data-type="gas95">修改</button>
+                    </div>
+                </div>
+                
+                <!-- 新增的布伦特原油价格 -->
+                <div class="guide-price-item crude">
+                    <div class="guide-price-label">
+                        <div class="guide-price-name">布伦特原油</div>
+                        <div class="guide-price-time" id="crude-time">未保存</div>
+                    </div>
+                    <input type="number" id="crude-price" class="guide-price-input" placeholder="0.00" min="0" step="0.01">
+                    <div class="guide-price-buttons">
+                        <button class="guide-btn save" data-type="crude">保存</button>
+                        <button class="guide-btn modify" data-type="crude">修改</button>
+                    </div>
+                </div>
+                
+                <div class="save-time">
+                    <span id="last-save-time">最后保存时间：从未保存</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认删除模态框 -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">删除确认</div>
+            <div class="modal-message">确定要删除这条历史记录吗？此操作不可撤销。</div>
+            <div class="modal-buttons">
+                <button id="cancel-delete" class="modal-btn cancel">取消</button>
+                <button id="confirm-delete" class="modal-btn confirm">删除</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 清空历史确认模态框 -->
+    <div id="clear-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">清空确认</div>
+            <div class="modal-message">确定要清空所有历史记录吗？此操作不可撤销。</div>
+            <div class="modal-buttons">
+                <button id="cancel-clear" class="modal-btn cancel">取消</button>
+                <button id="confirm-clear" class="modal-btn confirm">清空</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 应用状态管理
+        const AppState = {
+            currentOilType: null,
+            history: [],
+            guidePrices: {
+                diesel: { price: null, time: null },
+                gas92: { price: null, time: null },
+                gas95: { price: null, time: null },
+                crude: { price: null, time: null } // 新增布伦特原油
+            },
+            chart: null
+        };
+
+        // DOM元素
+        const DOM = {
+            // 页面
+            mainPage: document.getElementById('main-page'),
+            chartPage: document.getElementById('chart-page'),
+            guidePage: document.getElementById('guide-page'),
+            
+            // 主页面元素
+            factoryPriceInput: document.getElementById('factory-price'),
+            oilTypeButtons: document.querySelectorAll('.oil-btn'),
+            resultValue: document.getElementById('result-value'),
+            chartBtn: document.getElementById('chart-btn'),
+            guideBtn: document.getElementById('guide-btn'),
+            historyList: document.getElementById('history-list'),
+            noHistory: document.getElementById('no-history'),
+            clearHistoryBtn: document.getElementById('clear-history'),
+            
+            // 图表页面元素
+            backFromChartBtn: document.getElementById('back-from-chart'),
+            priceChart: document.getElementById('price-chart'),
+            noChartData: document.getElementById('no-chart-data'),
+            
+            // 指导价页面元素
+            backFromGuideBtn: document.getElementById('back-from-guide'),
+            dieselPriceInput: document.getElementById('diesel-price'),
+            gas92PriceInput: document.getElementById('gas92-price'),
+            gas95PriceInput: document.getElementById('gas95-price'),
+            crudePriceInput: document.getElementById('crude-price'), // 新增
+            dieselTime: document.getElementById('diesel-time'),
+            gas92Time: document.getElementById('gas92-time'),
+            gas95Time: document.getElementById('gas95-time'),
+            crudeTime: document.getElementById('crude-time'), // 新增
+            lastSaveTime: document.getElementById('last-save-time'),
+            
+            // 模态框
+            deleteModal: document.getElementById('delete-modal'),
+            clearModal: document.getElementById('clear-modal'),
+            cancelDeleteBtn: document.getElementById('cancel-delete'),
+            confirmDeleteBtn: document.getElementById('confirm-delete'),
+            cancelClearBtn: document.getElementById('cancel-clear'),
+            confirmClearBtn: document.getElementById('confirm-clear')
+        };
+
+        // 计算公式
+        const calculateCost = (factoryPrice, oilType) => {
+            let cost = 0;
+            
+            if (oilType.includes('汽油')) {
+                // 汽油：(出厂价+210)÷1350
+                cost = (parseFloat(factoryPrice) + 210) / 1350;
+            } else if (oilType.includes('柴油')) {
+                // 柴油：(出厂价+210)÷1200
+                cost = (parseFloat(factoryPrice) + 210) / 1200;
+            }
+            
+            return cost.toFixed(4); // 保留4位小数
+        };
+
+        // 油品类型按钮事件 - 修改：只在点击按钮时计算
+        DOM.oilTypeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // 获取出厂价
+                const factoryPrice = DOM.factoryPriceInput.value;
+                
+                // 验证是否输入了价格
+                if (!factoryPrice || isNaN(factoryPrice) || parseFloat(factoryPrice) <= 0) {
+                    alert('请输入出厂价');
+                    return;
+                }
+                
+                // 移除所有按钮的active类
+                DOM.oilTypeButtons.forEach(btn => btn.classList.remove('active'));
+                // 为当前按钮添加active类
+                button.classList.add('active');
+                // 更新当前油品类型
+                AppState.currentOilType = button.dataset.type;
+                
+                // 进行计算
+                const cost = calculateCost(factoryPrice, AppState.currentOilType);
+                DOM.resultValue.textContent = parseFloat(cost).toFixed(2);
+                
+                // 保存到历史记录
+                saveToHistory(factoryPrice, cost, AppState.currentOilType);
+            });
+        });
+
+        // 出厂价输入事件 - 修改：移除自动计算功能
+        DOM.factoryPriceInput.addEventListener('input', () => {
+            // 只更新显示，不进行计算
+            const factoryPrice = DOM.factoryPriceInput.value;
+            if (!factoryPrice || isNaN(factoryPrice) || parseFloat(factoryPrice) <= 0) {
+                DOM.resultValue.textContent = '0.00';
+            }
+        });
+
+        // 保存到历史记录
+        const saveToHistory = (factoryPrice, cost, oilType) => {
+            // 创建历史记录对象
+            const historyItem = {
+                id: Date.now(),
+                time: new Date().toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }),
+                date: new Date().toLocaleDateString('zh-CN'),
+                oilType: oilType,
+                factoryPrice: parseFloat(factoryPrice).toFixed(2),
+                cost: parseFloat(cost).toFixed(2)
+            };
+            
+            // 添加到历史记录数组的开头
+            AppState.history.unshift(historyItem);
+            
+            // 限制历史记录数量为100条
+            if (AppState.history.length > 100) {
+                AppState.history = AppState.history.slice(0, 100);
+            }
+            
+            // 更新本地存储
+            localStorage.setItem('oilCostHistory', JSON.stringify(AppState.history));
+            
+            // 更新历史记录显示
+            updateHistoryDisplay();
+            
+            // 如果有图表页面打开，更新图表
+            if (DOM.chartPage.classList.contains('active') && AppState.chart) {
+                updateChart();
+            }
+        };
+
+        // 更新历史记录显示
+        const updateHistoryDisplay = () => {
+            if (AppState.history.length === 0) {
+                DOM.noHistory.style.display = 'block';
+                DOM.historyList.innerHTML = '';
+                DOM.historyList.appendChild(DOM.noHistory);
+                return;
+            }
+            
+            DOM.noHistory.style.display = 'none';
+            
+            // 清空历史记录列表（除了无数据提示）
+            if (DOM.noHistory.parentNode === DOM.historyList) {
+                DOM.historyList.innerHTML = '';
+            } else {
+                DOM.historyList.innerHTML = '';
+            }
+            
+            // 添加历史记录项
+            AppState.history.forEach(item => {
+                const historyItem = document.createElement('div');
+                historyItem.className = `history-item ${item.oilType.includes('柴油') ? 'diesel' : ''}`;
+                historyItem.dataset.id = item.id;
+                
+                historyItem.innerHTML = `
+                    <div class="history-header">
+                        <div class="history-oil-type">${item.oilType}</div>
+                        <div class="history-time">${item.time}</div>
+                    </div>
+                    <div class="history-details">
+                        <div class="history-price">出厂价: <span>${item.factoryPrice} 元/吨</span></div>
+                        <div class="history-cost">到站价: <span>${item.cost} 元/升</span></div>
+                    </div>
+                    <button class="delete-history" data-id="${item.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                
+                DOM.historyList.appendChild(historyItem);
+            });
+            
+            // 为删除按钮添加事件
+            document.querySelectorAll('.delete-history').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(button.dataset.id);
+                    showDeleteModal(id);
+                });
+            });
+        };
+
+        // 显示删除确认模态框
+        const showDeleteModal = (id) => {
+            DOM.deleteModal.style.display = 'flex';
+            DOM.confirmDeleteBtn.dataset.id = id;
+        };
+
+        // 显示清空确认模态框
+        const showClearModal = () => {
+            DOM.clearModal.style.display = 'flex';
+        };
+
+        // 删除历史记录
+        const deleteHistoryItem = (id) => {
+            AppState.history = AppState.history.filter(item => item.id !== id);
+            localStorage.setItem('oilCostHistory', JSON.stringify(AppState.history));
+            updateHistoryDisplay();
+            
+            // 如果有图表页面打开，更新图表
+            if (DOM.chartPage.classList.contains('active') && AppState.chart) {
+                updateChart();
+            }
+        };
+
+        // 清空历史记录
+        const clearHistory = () => {
+            AppState.history = [];
+            localStorage.setItem('oilCostHistory', JSON.stringify(AppState.history));
+            updateHistoryDisplay();
+            
+            // 如果有图表页面打开，更新图表
+            if (DOM.chartPage.classList.contains('active') && AppState.chart) {
+                updateChart();
+            }
+        };
+
+        // 页面切换函数
+        const switchPage = (pageToShow) => {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            pageToShow.classList.add('active');
+            
+            // 如果是图表页面，初始化或更新图表
+            if (pageToShow === DOM.chartPage) {
+                setTimeout(initChart, 100);
+            }
+            
+            // 如果是指导价页面，更新显示
+            if (pageToShow === DOM.guidePage) {
+                updateGuidePriceDisplay();
+            }
+        };
+
+        // 初始化图表
+        const initChart = () => {
+            const ctx = DOM.priceChart.getContext('2d');
+            
+            // 如果有现有图表，销毁它
+            if (AppState.chart) {
+                AppState.chart.destroy();
+            }
+            
+            // 检查是否有历史数据
+            if (AppState.history.length === 0) {
+                DOM.noChartData.style.display = 'block';
+                return;
+            }
+            
+            DOM.noChartData.style.display = 'none';
+            
+            // 按油品类型和日期分组数据
+            const dataByOilTypeAndDate = {};
+            
+            AppState.history.forEach(item => {
+                if (!dataByOilTypeAndDate[item.oilType]) {
+                    dataByOilTypeAndDate[item.oilType] = {};
+                }
+                
+                // 按日期分组，取每天最后一个计算值
+                dataByOilTypeAndDate[item.oilType][item.date] = parseFloat(item.cost);
+            });
+            
+            // 获取所有日期（去重并排序）
+            const allDates = [...new Set(AppState.history.map(item => item.date))].sort();
+            
+            // 准备图表数据
+            const oilTypes = Object.keys(dataByOilTypeAndDate);
+            const datasets = oilTypes.map((oilType, index) => {
+                const colorIndex = index % 4;
+                const colors = [
+                    { border: '#1a6dcc', background: 'rgba(26, 109, 204, 0.1)' },
+                    { border: '#2e8b57', background: 'rgba(46, 139, 87, 0.1)' },
+                    { border: '#8a4baf', background: 'rgba(138, 75, 175, 0.1)' },
+                    { border: '#e67e22', background: 'rgba(230, 126, 34, 0.1)' }
+                ];
+                
+                const data = allDates.map(date => {
+                    return dataByOilTypeAndDate[oilType][date] || null;
+                });
+                
+                return {
+                    label: oilType,
+                    data: data,
+                    borderColor: colors[colorIndex].border,
+                    backgroundColor: colors[colorIndex].background,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                };
+            });
+            
+            // 创建图表
+            AppState.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allDates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 12
+                                },
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} 元/升`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '到站成本价 (元/升)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2) + ' 元';
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'nearest'
+                    }
+                }
+            });
+        };
+
+        // 更新图表
+        const updateChart = () => {
+            if (DOM.chartPage.classList.contains('active')) {
+                initChart();
+            }
+        };
+
+        // 更新指导价显示
+        const updateGuidePriceDisplay = () => {
+            // 更新柴油
+            if (AppState.guidePrices.diesel.price) {
+                DOM.dieselPriceInput.value = AppState.guidePrices.diesel.price;
+                DOM.dieselTime.textContent = AppState.guidePrices.diesel.time;
+            } else {
+                DOM.dieselPriceInput.value = '';
+                DOM.dieselTime.textContent = '未保存';
+            }
+            
+            // 更新92号汽油
+            if (AppState.guidePrices.gas92.price) {
+                DOM.gas92PriceInput.value = AppState.guidePrices.gas92.price;
+                DOM.gas92Time.textContent = AppState.guidePrices.gas92.time;
+            } else {
+                DOM.gas92PriceInput.value = '';
+                DOM.gas92Time.textContent = '未保存';
+            }
+            
+            // 更新95号汽油
+            if (AppState.guidePrices.gas95.price) {
+                DOM.gas95PriceInput.value = AppState.guidePrices.gas95.price;
+                DOM.gas95Time.textContent = AppState.guidePrices.gas95.time;
+            } else {
+                DOM.gas95PriceInput.value = '';
+                DOM.gas95Time.textContent = '未保存';
+            }
+            
+            // 更新布伦特原油
+            if (AppState.guidePrices.crude.price) {
+                DOM.crudePriceInput.value = AppState.guidePrices.crude.price;
+                DOM.crudeTime.textContent = AppState.guidePrices.crude.time;
+            } else {
+                DOM.crudePriceInput.value = '';
+                DOM.crudeTime.textContent = '未保存';
+            }
+            
+            // 更新最后保存时间
+            const allTimes = [
+                AppState.guidePrices.diesel.time,
+                AppState.guidePrices.gas92.time,
+                AppState.guidePrices.gas95.time,
+                AppState.guidePrices.crude.time
+            ].filter(time => time);
+            
+            if (allTimes.length > 0) {
+                // 找到最新的时间
+                const latestTime = allTimes.sort().reverse()[0];
+                DOM.lastSaveTime.textContent = `最后保存时间：${latestTime}`;
+            } else {
+                DOM.lastSaveTime.textContent = '最后保存时间：从未保存';
+            }
+        };
+
+        // 保存指导价
+        const saveGuidePrice = (type) => {
+            const inputElement = document.getElementById(`${type}-price`);
+            const price = inputElement.value;
+            
+            if (!price || isNaN(price) || parseFloat(price) <= 0) {
+                alert('请输入有效的价格');
+                return;
+            }
+            
+            const now = new Date().toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            AppState.guidePrices[type].price = parseFloat(price).toFixed(2);
+            AppState.guidePrices[type].time = now;
+            
+            // 更新本地存储
+            localStorage.setItem('oilGuidePrices', JSON.stringify(AppState.guidePrices));
+            
+            // 更新显示
+            updateGuidePriceDisplay();
+            
+            // 提示保存成功
+            alert('指导价保存成功！');
+        };
+
+        // 修改指导价
+        const modifyGuidePrice = (type) => {
+            const inputElement = document.getElementById(`${type}-price`);
+            inputElement.value = '';
+            inputElement.focus();
+        };
+
+        // 从本地存储加载数据
+        const loadFromLocalStorage = () => {
+            // 加载历史记录
+            const savedHistory = localStorage.getItem('oilCostHistory');
+            if (savedHistory) {
+                AppState.history = JSON.parse(savedHistory);
+                updateHistoryDisplay();
+            }
+            
+            // 加载指导价
+            const savedGuidePrices = localStorage.getItem('oilGuidePrices');
+            if (savedGuidePrices) {
+                AppState.guidePrices = JSON.parse(savedGuidePrices);
+            }
+        };
+
+        // 初始化事件监听器
+        const initEventListeners = () => {
+            // 页面切换按钮
+            DOM.chartBtn.addEventListener('click', () => switchPage(DOM.chartPage));
+            DOM.guideBtn.addEventListener('click', () => switchPage(DOM.guidePage));
+            DOM.backFromChartBtn.addEventListener('click', () => switchPage(DOM.mainPage));
+            DOM.backFromGuideBtn.addEventListener('click', () => switchPage(DOM.mainPage));
+            
+            // 清空历史记录按钮
+            DOM.clearHistoryBtn.addEventListener('click', showClearModal);
+            
+            // 指导价保存/修改按钮
+            document.querySelectorAll('.guide-btn.save').forEach(button => {
+                button.addEventListener('click', () => saveGuidePrice(button.dataset.type));
+            });
+            
+            document.querySelectorAll('.guide-btn.modify').forEach(button => {
+                button.addEventListener('click', () => modifyGuidePrice(button.dataset.type));
+            });
+            
+            // 模态框事件
+            DOM.cancelDeleteBtn.addEventListener('click', () => {
+                DOM.deleteModal.style.display = 'none';
+            });
+            
+            DOM.confirmDeleteBtn.addEventListener('click', () => {
+                const id = parseInt(DOM.confirmDeleteBtn.dataset.id);
+                deleteHistoryItem(id);
+                DOM.deleteModal.style.display = 'none';
+            });
+            
+            DOM.cancelClearBtn.addEventListener('click', () => {
+                DOM.clearModal.style.display = 'none';
+            });
+            
+            DOM.confirmClearBtn.addEventListener('click', () => {
+                clearHistory();
+                DOM.clearModal.style.display = 'none';
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', (e) => {
+                if (e.target === DOM.deleteModal) {
+                    DOM.deleteModal.style.display = 'none';
+                }
+                if (e.target === DOM.clearModal) {
+                    DOM.clearModal.style.display = 'none';
+                }
+            });
+        };
+
+        // 初始化应用
+        const initApp = () => {
+            loadFromLocalStorage();
+            initEventListeners();
+            
+            // 不再默认选中第一个油品类型
+            console.log('油品到站成本价计算器已初始化');
+        };
+
+        // 当页面加载完成后初始化应用
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
