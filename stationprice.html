@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>每日价格记录</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <link rel="manifest" id="my-manifest">
+
+    <style>
+        :root {
+            --primary: #007bff;
+            --danger: #dc3545;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --border: #dee2e6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            color: var(--dark);
+            padding-bottom: 80px; /* 底部留白给固定按钮 */
+        }
+
+        /* 顶部导航 */
+        .header {
+            background-color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-text { background: none; color: var(--primary); padding: 0; }
+
+        /* 页面容器 */
+        .container {
+            padding: 15px;
+            display: none; /* 默认隐藏所有页面，通过JS控制显示 */
+        }
+        .container.active { display: block; }
+
+        /* 表单样式 */
+        .input-group {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .input-group label {
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .input-group input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            text-align: right;
+            font-size: 1rem;
+        }
+
+        /* 底部固定栏 */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            box-sizing: border-box;
+        }
+
+        .bottom-bar button {
+            flex: 1;
+            padding: 12px;
+            font-size: 1rem;
+        }
+
+        /* 记录列表样式 */
+        .record-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 300px;
+        }
+        .modal-header { font-weight: bold; margin-bottom: 10px; font-size: 1.1rem; }
+        .modal-body { margin-bottom: 20px; line-height: 1.6; }
+        
+        /* 管理界面列表 */
+        .station-list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            background: white;
+        }
+        .station-list-item:first-child { border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .station-list-item:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+
+        /* 图表容器 */
+        .chart-container {
+            position: relative;
+            height: 60vh;
+            width: 100%;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="view-home" class="container active">
+        <div class="header">
+            <button class="btn btn-outline" onclick="switchView('view-stations')">站点管理</button>
+            <h1 id="current-date-display">2025-01-01</h1>
+            <button class="btn btn-outline" onclick="switchView('view-chart')">数据库</button>
+        </div>
+        
+        <div id="price-inputs-container" style="margin-top: 15px;">
+            </div>
+
+        <div class="bottom-bar">
+            <button class="btn btn-outline" onclick="switchView('view-records')">查看记录</button>
+            <button class="btn btn-primary" onclick="saveTodayData()">保存</button>
+        </div>
+    </div>
+
+    <div id="view-stations" class="container">
+        <div class="header">
+            <button class="btn btn-text" onclick="switchView('view-home')">← 返回</button>
+            <h1>站点管理</h1>
+            <div style="width: 40px;"></div> </div>
+
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <input type="text" id="new-station-name" placeholder="输入新站点名称" style="flex:1; padding: 10px; border:1px solid #ddd; border-radius: 4px;">
+            <button class="btn btn-primary" onclick="addStation()">添加</button>
+        </div>
+
+        <h3 style="margin-top: 20px; font-size: 1rem; color: #666;">已保存站点</h3>
+        <div id="station-list-container">
+            </div>
+    </div>
+
+    <div id="view-records" class="container">
+        <div class="header">
+            <button class="btn btn-text" onclick="switchView('view-home')">← 返回</button>
+            <h1>历史记录</h1>
+            <div style="width: 40px;"></div>
+        </div>
+        <div id="records-list-container" style="margin-top: 15px;">
+            </div>
+    </div>
+
+    <div id="view-chart" class="container">
+        <div class="header">
+            <button class="btn btn-text" onclick="switchView('view-home')">← 返回</button>
+            <h1>数据走势</h1>
+            <div style="width: 40px;"></div>
+        </div>
+        <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
+        <p style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 10px;">点击图表中的圆点可查看当日详细分析</p>
+    </div>
+
+    <div id="info-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modal-title">标题</div>
+            <div class="modal-body" id="modal-body">内容</div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        // ================= 数据管理逻辑 =================
+        const STORE_KEY_STATIONS = 'haotian_stations';
+        const STORE_KEY_DATA = 'haotian_prices';
+
+        // 默认数据
+        const defaultStations = ['浩天', '中石化', '中石油'];
+
+        function getStations() {
+            const s = localStorage.getItem(STORE_KEY_STATIONS);
+            return s ? JSON.parse(s) : defaultStations;
+        }
+
+        function saveStations(list) {
+            localStorage.setItem(STORE_KEY_STATIONS, JSON.stringify(list));
+            renderHomeInputs(); // 更新主页
+            renderStationList(); // 更新管理页
+        }
+
+        function getAllData() {
+            const d = localStorage.getItem(STORE_KEY_DATA);
+            return d ? JSON.parse(d) : {};
+        }
+
+        function saveAllData(data) {
+            localStorage.setItem(STORE_KEY_DATA, JSON.stringify(data));
+        }
+
+        // ================= 界面渲染逻辑 =================
+        
+        // 今天的日期 YYYY-MM-DD
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        function init() {
+            document.getElementById('current-date-display').innerText = todayStr;
+            renderHomeInputs();
+            renderStationList();
+            
+            // 尝试初始化 PWA
+            initPWA();
+        }
+
+        // 切换视图
+        function switchView(viewId) {
+            document.querySelectorAll('.container').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            if(viewId === 'view-records') renderRecordsList();
+            if(viewId === 'view-chart') renderChart();
+        }
+
+        // 渲染主页输入框
+        function renderHomeInputs() {
+            const stations = getStations();
+            const container = document.getElementById('price-inputs-container');
+            const allData = getAllData();
+            const todayData = allData[todayStr] || {};
+
+            container.innerHTML = '';
+            
+            if (stations.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#999;">暂无站点，请点击左上角添加</div>';
+                return;
+            }
+
+            stations.forEach(station => {
+                const div = document.createElement('div');
+                div.className = 'input-group';
+                div.innerHTML = `
+                    <label>${station}</label>
+                    <input type="number" inputmode="decimal" step="0.01" placeholder="价格" 
+                           id="input-${station}" value="${todayData[station] || ''}">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 保存当日数据
+        function saveTodayData() {
+            const stations = getStations();
+            const currentData = {};
+            let hasInput = false;
+
+            stations.forEach(station => {
+                const val = document.getElementById(`input-${station}`).value;
+                if(val) {
+                    currentData[station] = parseFloat(val);
+                    hasInput = true;
+                }
+            });
+
+            if(!hasInput) {
+                showModal('提示', '请至少输入一个站点的价格');
+                return;
+            }
+
+            const allData = getAllData();
+            allData[todayStr] = currentData;
+            saveAllData(allData);
+            showModal('成功', '今日价格已保存！');
+        }
+
+        // ================= 站点管理逻辑 =================
+        
+        function renderStationList() {
+            const list = getStations();
+            const container = document.getElementById('station-list-container');
+            container.innerHTML = '';
+
+            list.forEach((name, index) => {
+                const div = document.createElement('div');
+                div.className = 'station-list-item';
+                div.innerHTML = `
+                    <span>${name}</span>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteStation(${index})">删除</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addStation() {
+            const input = document.getElementById('new-station-name');
+            const name = input.value.trim();
+            if(!name) return;
+
+            const list = getStations();
+            if(list.includes(name)) {
+                showModal('错误', '该站点已存在');
+                return;
+            }
+            
+            list.push(name);
+            saveStations(list);
+            input.value = '';
+        }
+
+        function deleteStation(index) {
+            if(confirm('确定要删除该站点吗？(不会删除历史价格数据)')) {
+                const list = getStations();
+                list.splice(index, 1);
+                saveStations(list);
+            }
+        }
+
+        // ================= 记录管理逻辑 =================
+
+        function renderRecordsList() {
+            const allData = getAllData();
+            // 按日期降序排列
+            const dates = Object.keys(allData).sort().reverse();
+            const container = document.getElementById('records-list-container');
+            container.innerHTML = '';
+
+            if(dates.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999;">暂无历史记录</div>';
+                return;
+            }
+
+            dates.forEach(date => {
+                // 计算当天的简要信息（例如记录了几个站点）
+                const count = Object.keys(allData[date]).length;
+                
+                const div = document.createElement('div');
+                div.className = 'record-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${date}</strong>
+                        <span style="color:#666; font-size:0.9rem; margin-left:10px;">已录入 ${count} 个站点</span>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteRecord('${date}')">删除</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function deleteRecord(date) {
+            if(confirm(`确定要删除 ${date} 的所有记录吗？`)) {
+                const allData = getAllData();
+                delete allData[date];
+                saveAllData(allData);
+                renderRecordsList(); // 刷新列表
+                // 如果删的是今天，刷新主页输入框
+                if(date === todayStr) renderHomeInputs();
+            }
+        }
+
+        // ================= 图表逻辑 (核心要求) =================
+        let myChart = null;
+
+        function renderChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            const allData = getAllData();
+            const dates = Object.keys(allData).sort(); // 升序日期 X轴
+            
+            if (dates.length === 0) return;
+
+            // 获取所有出现过的站点名称
+            const allStations = new Set();
+            dates.forEach(d => Object.keys(allData[d]).forEach(k => allStations.add(k)));
+            const stationArr = Array.from(allStations);
+
+            // 预定义颜色
+            const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6610f2', '#fd7e14', '#e83e8c'];
+            const lineDash = [[], [5, 5], [10, 5], [2, 2]]; // 实线、虚线组合
+
+            const datasets = stationArr.map((station, idx) => {
+                const dataPoints = dates.map(date => allData[date][station] || null); // 如果某天没数据则断开
+                return {
+                    label: station,
+                    data: dataPoints,
+                    borderColor: colors[idx % colors.length],
+                    backgroundColor: colors[idx % colors.length],
+                    borderDash: lineDash[idx % lineDash.length], // 区分线型
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true // 允许跨越空数据连接
+                };
+            });
+
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: false, title: {display: true, text: '价格'} }
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: false // 禁用默认 tooltip，使用点击事件
+                        }
+                    },
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const date = dates[index];
+                            showDateAnalysis(date, allData[date]);
+                        }
+                    }
+                }
+            });
+        }
+
+        function showDateAnalysis(date, dayData) {
+            if(!dayData) return;
+            
+            const prices = Object.values(dayData);
+            const total = prices.reduce((sum, p) => sum + p, 0);
+            const avg = (total / prices.length).toFixed(2);
+            
+            // 查找“浩天”
+            const haotianPrice = dayData['浩天'] ? dayData['浩天'] + ' 元' : '未记录';
+
+            let html = `<strong>日期：</strong> ${date}<br>`;
+            html += `<strong>平均价格：</strong> ${avg}<br>`;
+            html += `<strong>浩天价格：</strong> ${haotianPrice}<hr>`;
+            html += `<strong>详细明细：</strong><br>`;
+            
+            for(let s in dayData) {
+                html += `${s}: ${dayData[s]}<br>`;
+            }
+
+            showModal('数据分析', html);
+        }
+
+        // ================= 工具函数 =================
+        function showModal(title, bodyHtml) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerHTML = bodyHtml;
+            document.getElementById('info-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('info-modal').style.display = 'none';
+        }
+
+        // ================= PWA 设置 (Manifest & SW) =================
+        function initPWA() {
+            // 1. 生成 Manifest
+            const manifest = {
+                "name": "每日价格记录",
+                "short_name": "价格本",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f8f9fa",
+                "theme_color": "#007bff",
+                "icons": [
+                    {
+                        "src": "https://cdn-icons-png.flaticon.com/512/2666/2666505.png", 
+                        "sizes": "512x512",
+                        "type": "image/png"
+                    }
+                ]
+            };
+            const stringManifest = JSON.stringify(manifest);
+            const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blobManifest);
+            document.getElementById('my-manifest').setAttribute('href', manifestURL);
+
+            // 2. 尝试注册 Service Worker (用于离线)
+            // 注意：Blob Worker在不同浏览器兼容性不同，若要完美离线，建议将sw代码单独保存为sw.js
+            if ('serviceWorker' in navigator) {
+                // 这是一个通用的缓存策略 SW
+                const swCode = `
+                    const CACHE_NAME = 'price-tracker-v1';
+                    const urlsToCache = [
+                        './', 
+                        'https://cdn.jsdelivr.net/npm/chart.js' 
+                    ];
+
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(cache => cache.addAll(urlsToCache))
+                        );
+                        self.skipWaiting();
+                    });
+
+                    self.addEventListener('activate', event => {
+                         event.waitUntil(self.clients.claim());
+                    });
+
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(response => {
+                                    if (response) return response;
+                                    return fetch(event.request);
+                                })
+                        );
+                    });
+                `;
+                
+                // 尝试用 Blob 注册 SW
+                try {
+                    const blobSW = new Blob([swCode], {type: 'text/javascript'});
+                    const swURL = URL.createObjectURL(blobSW);
+                    // 注意：大部分浏览器禁止 Blob URL 作为 SW，除非同源策略允许
+                    // 如果部署在HTTPS服务器，建议将 swCode 保存为 sw.js 并使用 register('sw.js')
+                    // 这里为了单文件要求尽力尝试
+                    navigator.serviceWorker.register(swURL).catch(e => console.log('SW Blob模式受限，建议部署为独立文件'));
+                } catch(e) {
+                    console.log('PWA ServiceWorker 初始化需HTTPS环境');
+                }
+            }
+        }
+
+        // 启动
+        init();
+
+    </script>
+</body>
+</html>
