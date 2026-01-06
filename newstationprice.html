@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>站点价格智能分析</title>
+    
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/888/888871.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f1f5f9; }
+        .chart-container { height: 450px; width: 100%; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* 适配手机端点击态 */
+        .btn-active:active { transform: scale(0.96); transition: transform 0.1s; }
+    </style>
+</head>
+<body class="p-2 md:p-6">
+    <div id="app" class="max-w-xl mx-auto space-y-4 pb-10">
+        
+        <header class="flex justify-between items-center py-4 px-2">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">价格监测系统</h1>
+                <p class="text-xs text-slate-500">自动解析 · 离线存储 · 趋势分析</p>
+            </div>
+            <div class="bg-blue-100 p-2 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+        </header>
+
+        <section class="bg-white rounded-3xl shadow-sm p-5 border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center">
+                <span class="w-1 h-4 bg-blue-600 rounded-full mr-2"></span>智能识别输入
+            </h3>
+            <textarea 
+                v-model="inputText"
+                placeholder="在此粘贴：11月25日。浩天4.7。中石化4.8"
+                class="w-full h-28 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition-all"
+            ></textarea>
+            <button 
+                @click="parseInput"
+                class="w-full mt-3 bg-slate-800 text-white font-bold py-4 rounded-2xl btn-active shadow-lg shadow-slate-200"
+            >立即解析</button>
+        </section>
+
+        <transition name="fade">
+            <section v-if="previewData.length > 0" class="bg-white rounded-3xl shadow-md p-5 border-2 border-blue-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-slate-800">确认记录：{{currentDate}}</h2>
+                    <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full">红色代表新站点</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div v-for="(item, index) in previewData" :key="index" class="space-y-1">
+                        <input 
+                            v-model="item.name"
+                            :class="['w-full p-3 rounded-xl border text-sm font-medium', isNewSite(item.name) ? 'border-red-400 bg-red-50 text-red-700' : 'border-slate-200']"
+                        >
+                        <input 
+                            type="number" step="0.01"
+                            v-model.number="item.price"
+                            class="w-full p-3 rounded-xl border border-slate-200 text-sm text-center bg-slate-50 font-bold text-blue-600"
+                        >
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="confirmSave" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold btn-active">确认入库</button>
+                    <button @click="previewData = []" class="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-medium btn-active">取消</button>
+                </div>
+            </section>
+        </transition>
+
+        <section class="bg-white rounded-3xl shadow-sm p-5 border border-slate-200 relative">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-sm font-bold text-slate-700 flex items-center">
+                    <span class="w-1 h-4 bg-blue-600 rounded-full mr-2"></span>趋势分析图表
+                </h3>
+                <button @click="updateChart" class="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-2 rounded-full active:bg-blue-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    重新绘图
+                </button>
+            </div>
+            <div ref="chartRef" class="chart-container"></div>
+            <p class="text-[10px] text-center text-slate-400 mt-2">提示：左右滑动图表查看历史，点击点位看排名</p>
+        </section>
+
+        <section class="bg-white rounded-3xl shadow-sm p-5 border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-700 mb-4 flex items-center">
+                <span class="w-1 h-4 bg-blue-600 rounded-full mr-2"></span>历史流水记录
+            </h3>
+            <div class="max-h-72 overflow-y-auto no-scrollbar space-y-3">
+                <div v-for="(record, index) in history" :key="index" class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="flex items-center gap-4">
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">{{record.date.split('月')[0]}}M</p>
+                            <p class="text-sm font-black text-slate-800">{{record.date.split('月')[1]}}</p>
+                        </div>
+                        <div class="w-[1px] h-8 bg-slate-200"></div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">{{record.name}}</p>
+                            <p class="text-xs font-mono text-blue-600">价格: {{record.price}}</p>
+                        </div>
+                    </div>
+                    <button @click="deleteRecord(index)" class="text-slate-300 hover:text-red-500 p-2 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+                <div v-if="history.length === 0" class="text-center py-10 text-slate-400 text-sm italic">暂无记录，请在上方输入</div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const inputText = ref('');
+                const previewData = ref([]);
+                const currentDate = ref('');
+                const history = ref(JSON.parse(localStorage.getItem('gas_data_v2') || '[]'));
+                const chartRef = ref(null);
+                let myChart = null;
+
+                // 核心修改：精准解析日期后的信息
+                const parseInput = () => {
+                    if (!inputText.value) return;
+                    
+                    // 1. 提取日期
+                    const dateMatch = inputText.value.match(/(\d+月\d+日)/);
+                    currentDate.value = dateMatch ? dateMatch[0] : "今日";
+
+                    // 2. 核心逻辑：从“日”字后面开始解析
+                    const riIndex = inputText.value.indexOf('日');
+                    const textToParse = riIndex !== -1 ? inputText.value.substring(riIndex + 1) : inputText.value;
+
+                    // 3. 提取站点和价格
+                    const entries = [];
+                    const entryRegex = /([\u4e00-\u9fa5a-zA-Z]+)(\d+\.?\d*)/g;
+                    let match;
+                    while ((match = entryRegex.exec(textToParse)) !== null) {
+                        entries.push({ name: match[1], price: parseFloat(match[2]) });
+                    }
+                    previewData.value = entries;
+                };
+
+                const isNewSite = (name) => {
+                    const existingSites = new Set(history.value.map(h => h.name));
+                    return !existingSites.has(name);
+                };
+
+                const confirmSave = () => {
+                    const newRecords = previewData.value.map(item => ({
+                        date: currentDate.value,
+                        name: item.name,
+                        price: item.price,
+                        timestamp: Date.now()
+                    }));
+                    // 插入到开头并保存
+                    history.value = [...newRecords, ...history.value];
+                    localStorage.setItem('gas_data_v2', JSON.stringify(history.value));
+                    previewData.value = [];
+                    inputText.value = '';
+                    updateChart();
+                };
+
+                const deleteRecord = (index) => {
+                    if(confirm("确定删除该条记录吗？")){
+                        history.value.splice(index, 1);
+                        localStorage.setItem('gas_data_v2', JSON.stringify(history.value));
+                        updateChart();
+                    }
+                };
+
+                const updateChart = () => {
+                    if (!myChart) myChart = echarts.init(chartRef.value);
+                    myChart.clear(); // 清空旧图表实现“刷新”
+
+                    // 按日期排序 (简单字符串排序)
+                    const dates = [...new Set(history.value.map(h => h.date))].sort((a,b) => a.localeCompare(b));
+                    const siteNames = [...new Set(history.value.map(h => h.name))];
+                    
+                    const series = siteNames.map(name => {
+                        const data = dates.map(d => {
+                            const record = history.value.find(h => h.date === d && h.name === name);
+                            return record ? record.price : null;
+                        });
+                        
+                        const isHaoTian = name === '浩天';
+                        return {
+                            name: name,
+                            type: 'line',
+                            data: data,
+                            smooth: true,
+                            connectNulls: true,
+                            symbolSize: isHaoTian ? 14 : 6,
+                            symbol: isHaoTian ? 'star' : 'circle',
+                            lineStyle: { 
+                                width: isHaoTian ? 4 : 2,
+                                type: isHaoTian ? 'solid' : (siteNames.indexOf(name) % 2 === 0 ? 'solid' : 'dashed')
+                            },
+                            itemStyle: { color: isHaoTian ? '#dc2626' : null }
+                        };
+                    });
+
+                    const option = {
+                        legend: { bottom: '0%', textStyle: { fontSize: 10 } },
+                        tooltip: {
+                            trigger: 'axis',
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            extraCssText: 'box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 12px; border:none;',
+                            formatter: function (params) {
+                                const date = params[0].axisValue;
+                                const items = params.filter(p => p.value !== null).sort((a, b) => b.value - a.value);
+                                if(items.length === 0) return "";
+                                const avg = (items.reduce((s, p) => s + p.value, 0) / items.length).toFixed(2);
+                                
+                                let html = `<div class="p-1"><b class="text-slate-800">${date}</b><br/>`;
+                                html += `<span class="text-[10px] text-blue-500">当日平均: ${avg}</span><hr class="my-1"/>`;
+                                items.forEach(p => {
+                                    const isHT = p.seriesName === '浩天';
+                                    html += `<div class="flex justify-between gap-6 text-xs ${isHT?'text-red-600 font-bold':''}">
+                                                <span>${isHT?'★ ':''}${p.seriesName}</span>
+                                                <span>${p.value}</span>
+                                             </div>`;
+                                });
+                                return html + '</div>';
+                            }
+                        },
+                        grid: { left: '4%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+                        dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', height: 18, bottom: 40 }],
+                        xAxis: { type: 'category', data: dates, boundaryGap: false, axisTick: {show:false} },
+                        yAxis: { type: 'value', scale: true, splitLine: {lineStyle: {type: 'dashed'}} },
+                        series: series
+                    };
+
+                    myChart.setOption(option);
+                };
+
+                // PWA 动态生成 Manifest
+                const setupPWA = () => {
+                    const manifest = {
+                        "name": "站点价格智能分析",
+                        "short_name": "价格分析",
+                        "start_url": ".",
+                        "display": "standalone",
+                        "background_color": "#f1f5f9",
+                        "theme_color": "#2563eb",
+                        "icons": [{
+                            "src": "https://cdn-icons-png.flaticon.com/512/888/888871.png",
+                            "sizes": "512x512",
+                            "type": "image/png"
+                        }]
+                    };
+                    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+                    const manifestURL = URL.createObjectURL(blob);
+                    const link = document.createElement('link');
+                    link.rel = 'manifest';
+                    link.href = manifestURL;
+                    document.head.appendChild(link);
+                };
+
+                onMounted(() => {
+                    updateChart();
+                    setupPWA();
+                    window.addEventListener('resize', () => myChart && myChart.resize());
+                });
+
+                return { inputText, previewData, currentDate, history, parseInput, confirmSave, deleteRecord, isNewSite, chartRef, updateChart };
+            }
+        }).mount('#app');
+
+        // 注册 Service Worker (PWA 安装必须)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('data:text/javascript;base64,' + btoa('self.addEventListener("fetch", (e) => e.respondWith(fetch(e.request)))'));
+            });
+        }
+    </script>
+</body>
+</html>
